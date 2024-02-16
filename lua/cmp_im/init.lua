@@ -102,7 +102,7 @@ end
 
 -- 综合起来，[[\l+]] 表示一个字符类，其中包含所有的字母字符和加号字符，即匹配任何一个字母字符或者加号字符。
 function source:get_keyword_pattern()
-	return [[\l\+]]
+	return [[;\?\l\+]]
 end
 
 -- 触发 cmp 的按键
@@ -161,6 +161,10 @@ local function toggle()
 	return im_opts.enable
 end
 
+local function getStatus()
+	return im_opts.enable
+end
+
 ---Select the entry from IM
 local function select(index)
 	return function(fallback)
@@ -192,5 +196,6 @@ return {
 	source = source,
 	setup = setup,
 	toggle = toggle,
+	getStatus = getStatus,
 	select = select,
 }
