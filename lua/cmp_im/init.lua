@@ -3,7 +3,7 @@ local utils = require("cmp_im.utils")
 local source = {}
 ---Default options
 local im_opts = {
-	enable = true,
+	enable = false,
 	tables = utils.load_zhh_table(),
 	format = function(key, text)
 		return vim.fn.printf("%-15S %s", text, key)
@@ -134,9 +134,11 @@ function source:get_trigger_characters()
 		"x",
 		"y",
 		"z",
+		";",
 	}
 end
 
+-- 补全的关键函数
 function source:complete(params, callback)
 	load_tbls(im_opts.tables)
 	-- local t0 = vim.fn.reltime()

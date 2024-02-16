@@ -52,13 +52,12 @@ local function split(line, sep)
 	return list
 end
 
+-- 加载虎码的码表
 function M.load_zhh_table()
 	local dir = vim.fs.dirname(vim.api.nvim_get_runtime_file("lua/cmp_im/init.lua", false)[1])
-	print(dir)
 	dir = vim.fs.dirname(vim.fs.dirname(dir))
 	local tbls = {}
 	tbls[#tbls + 1] = string.format("%s/tables/%s.txt", dir, "zhh")
-	print(vim.inspect(tbls))
 	return tbls
 end
 
