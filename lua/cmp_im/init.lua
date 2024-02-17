@@ -1,14 +1,19 @@
 local cmp = require("cmp")
 local utils = require("cmp_im.utils")
+local dictionary = require("cmp_im.dictionary")
 local source = {}
 ---Default options
 local im_opts = {
 	enable = false,
 	tables = utils.load_zhh_table(),
 	format = function(key, text)
-		return vim.fn.printf("%-15S %s", text, key)
+		local zigen_dictionary = dictionary.load_zhh_zigen_dictionary()
+		local pinyin_dictionary = dictionary.load_zhh_pinyin_dictionary()
+		-- 如果是"我",那么 key 就是 t, text 就是我
+		return vim.fn.printf("%-2S %s %s %s", text, key, zigen_dictionary[text],pinyin_dictionary[text])
 	end,
-	maxn = 8,
+	-- 能够显示有多少
+	maxn = 3,
 }
 
 ---All IM tables
