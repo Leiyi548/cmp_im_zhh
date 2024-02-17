@@ -7,10 +7,9 @@ local im_opts = {
 	enable = false,
 	tables = utils.load_zhh_table(),
 	format = function(key, text)
-		local zigen_dictionary = dictionary.load_zhh_zigen_dictionary()
-		local pinyin_dictionary = dictionary.load_zhh_pinyin_dictionary()
+		local dictionary = dictionary.load_zhh_dictionary()
 		-- 如果是"我",那么 key 就是 t, text 就是我
-		return vim.fn.printf("%-2S %s %s %s", text, key, zigen_dictionary[text],pinyin_dictionary[text])
+		return vim.fn.printf("%-2S %s", text,dictionary[text])
 	end,
 	-- 能够显示有多少
 	maxn = 3,
