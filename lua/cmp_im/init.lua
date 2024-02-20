@@ -7,12 +7,12 @@ local im_opts = {
 	enable = false,
 	tables = utils.load_zhh_table(),
 	format = function(key, text)
-		local dictionary = dictionary.load_zhh_dictionary()
+		local dict = dictionary.load_zhh_dictionary()
 		-- 如果是"我",那么 key 就是 t, text 就是我
-		return vim.fn.printf("%-2S %s", text,dictionary[text])
+		return vim.fn.printf("%-2S %s", text, dict[text])
 	end,
 	-- 能够显示有多少
-	maxn = 3,
+	maxn = 1,
 }
 
 ---All IM tables
