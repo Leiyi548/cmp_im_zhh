@@ -4,6 +4,7 @@ local dictionary = require("cmp_im.dictionary")
 local source = {}
 ---Default options
 local im_opts = {
+	chinese_symbol = false,
 	enable = false,
 	tables = utils.load_zhh_table(),
 	format = function(key, text)
@@ -165,8 +166,34 @@ local function toggle()
 	return im_opts.enable
 end
 
+local function toggle_chinese_symbol()
+	if not im_opts.enable then
+		vim.notify("请先启动虎码")
+		return
+	end
+	im_opts.chinese_symbol = not im_opts.chinese_symbol
+	-- set chinese_symbol keymap
+	if im_opts.chinese_symbol then
+		for lhs, rhs in pairs(utils.chinese_symbol()) do
+			vim.keymap.set("i", lhs, rhs)
+		end
+		vim.notify("中文符号启动")
+	else
+		for lhs, rhs in pairs(utils.chinese_symbol()) do
+			vim.keymap.del("i", lhs)
+		end
+		vim.notify("中文符号退出")
+	end
+	-- remove chinese_symbol keymap
+	return im_opts.chinese_symbol
+end
+
 local function getStatus()
 	return im_opts.enable
+end
+
+local function getChineseSymbolStatus()
+	return im_opts.chinese_symbol
 end
 
 ---Select the entry from IM
@@ -200,6 +227,8 @@ return {
 	source = source,
 	setup = setup,
 	toggle = toggle,
+	toggle_chinese_symbol = toggle_chinese_symbol,
+	getChineseSymbolStatus = getChineseSymbolStatus,
 	getStatus = getStatus,
 	select = select,
 }
