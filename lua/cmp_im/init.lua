@@ -173,7 +173,7 @@ end
 
 local function toggle_chinese_symbol()
 	if not im_opts.enable then
-		vim.notify("请先启动虎码")
+		vim.notify("请先启动虎码", "error")
 		return
 	end
 	im_opts.chinese_symbol = not im_opts.chinese_symbol
