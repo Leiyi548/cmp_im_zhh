@@ -166,6 +166,9 @@ local function toggle()
 	-- 如果中文符号启动的话，就关闭它
 	if im_opts.chinese_symbol then
 		im_opts.chinese_symbol = false
+		for lhs, rhs in pairs(utils.chinese_symbol()) do
+			vim.keymap.del("i", lhs)
+		end
 		vim.notify("中文符号退出")
 	end
 	return im_opts.enable
