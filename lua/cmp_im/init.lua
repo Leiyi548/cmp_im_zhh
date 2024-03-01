@@ -6,6 +6,7 @@ local source = {}
 local im_opts = {
 	chinese_symbol = false,
 	enable = false,
+	noice = true,
 	tables = utils.load_zhh_table(),
 	format = function(key, text)
 		local dict = dictionary.load_zhh_dictionary()
@@ -162,6 +163,9 @@ end
 
 ---Enable/Disable IM source
 local function toggle()
+	if im_opts.noice then
+		require("noice").cmd("dismiss")
+	end
 	im_opts.enable = not im_opts.enable
 	-- 如果中文符号启动的话，就关闭它
 	if im_opts.chinese_symbol then
@@ -175,6 +179,9 @@ local function toggle()
 end
 
 local function toggle_chinese_symbol()
+	if im_opts.noice then
+		require("noice").cmd("dismiss")
+	end
 	if not im_opts.enable then
 		vim.notify("请先启动虎码", "error")
 		return
@@ -202,6 +209,25 @@ end
 
 local function getChineseSymbolStatus()
 	return im_opts.chinese_symbol
+end
+
+local function is_zhh_entry(entry)
+	return vim.tbl_get(entry, "source", "name") == "IM"
+end
+
+local function confirmEnter()
+	return function(fallback)
+		-- 如果虎码启动然后 cmp 补全框出来
+		local selected_entry = cmp.get_selected_entry()
+		if cmp.visible() then
+			if im_opts.enable and is_zhh_entry(selected_entry) then
+				return require("cmp").abort()
+			else
+				return cmp.confirm({ select = true })
+			end
+		end
+		return fallback()
+	end
 end
 
 ---Select the entry from IM
@@ -239,4 +265,5 @@ return {
 	getChineseSymbolStatus = getChineseSymbolStatus,
 	getStatus = getStatus,
 	select = select,
+	confirmEnter = confirmEnter,
 }

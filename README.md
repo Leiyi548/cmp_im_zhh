@@ -45,6 +45,10 @@ cmp.setup{
 }
 ```
 
+-- Cmp insert mode enter
+```lua
+["<CR>"] = cmp.mapping(require("cmp_im").confirmEnter(), { "i" }),
+```
 
 - Cmp cmdline Select IM's entry with `<Space>`
 
