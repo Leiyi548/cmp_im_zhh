@@ -1,6 +1,8 @@
-# cmp-im
+# cmp-im-zhh
 
-Input Method source.
+[cmp-im](https://github.com/yehuohan/cmp-im) 的 fork
+
+## 演示图
 
 <div align="center">
 <img alt="cmp-im" src="img/虎码演示.gif"/>
@@ -45,7 +47,8 @@ cmp.setup{
 }
 ```
 
--- Cmp insert mode enter
+- Cmp insert mode enter
+
 ```lua
 ["<CR>"] = cmp.mapping(require("cmp_im").confirmEnter(), { "i" }),
 ```
@@ -109,9 +112,9 @@ cmp.setup{
 opts = function()
   return {
       enabled = function()
-        local buftype = vim.api.nvim_buf_get_option(0, "buftype")
-        if buftype == "TelscopePrompt" then
-          return true
+        local filetype = vim.api.nvim_buf_get_option(0, "filetype")
+        if filetype == "TelescopePrompt" then
+          return require("cmp_im").getStatus()
         end
         return true
       end,
@@ -124,14 +127,22 @@ end
 
 ```lua
 lualine_x = {
-  {
-    function()
-      return ""
-    end,
-    color = function()
-      return { fg = require("cmp_im").getStatus() and "green" or "red" }
-    end,
-},
+          {
+            function()
+              return ""
+            end,
+            color = function()
+              return { fg = require("cmp_im").getChineseSymbolStatus() and "#A7C080" or "grey" }
+            end,
+          },
+          {
+            function()
+              return "虎"
+            end,
+            color = function()
+              return { fg = require("cmp_im").getStatus() and "#A7C080" or "grey" }
+            end,
+          },
 }
 ```
 
@@ -148,7 +159,7 @@ a 阿 啊 呵 腌 嗄 锕 吖 錒
 
 Here is some table-repos for you:
 
-- [cmp-im-zh](https://github.com/yehuohan/cmp-im-zh): Chinese input with wubi, pinyin
+- [cmp-im-zh](https://github.com/yehuohan/cmp-im-zh): Chinese input
 - [ZSaberLv0/ZFVimIM#db-samples](https://github.com/ZSaberLv0/ZFVimIM#db-samples)
 - [fcitx-table-extra](https://github.com/fcitx/fcitx-table-extra)
 - [fcitx-table-data](https://github.com/fcitx/fcitx-table-data)
