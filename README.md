@@ -15,6 +15,8 @@
 ```lua
 local cmp_im = require('cmp_im')
 cmp_im.setup{
+  -- Enable Noice
+  noice = true,
   -- Enable/Disable IM
   enable = false,
   -- IM tables path array
