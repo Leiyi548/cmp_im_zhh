@@ -190,7 +190,12 @@ local function toggle_chinese_symbol()
 	-- set chinese_symbol keymap
 	if im_opts.chinese_symbol then
 		for lhs, rhs in pairs(utils.chinese_symbol()) do
-			vim.keymap.set("i", lhs, rhs)
+			vim.keymap.set("i", lhs, function()
+				if cmp.visible() then
+					cmp.confirm()
+				end
+				vim.api.nvim_input(rhs)
+			end)
 		end
 		vim.notify("中文符号启动")
 	else
