@@ -140,7 +140,6 @@ function source:get_trigger_characters()
 		"x",
 		"y",
 		"z",
-		";",
 	}
 end
 
