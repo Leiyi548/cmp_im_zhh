@@ -27,6 +27,16 @@ M.config = {
 --- Name of this provider as reported by blink (used to detect IM candidates).
 M.source_name = 'IM'
 
+--- Guard so `M.new` only seeds the shared config from `opts` ONCE. blink.cmp
+--- instantiates the source lazily (and may rebuild it on reload / filetype
+--- change), so re-applying `opts.enable = false` on every call would clobber a
+--- live `toggle()`.
+M._init = false
+
+--- Set to true the first time the user calls `toggle()`, so that a provider's
+--- `opts.enable` default can never reset a live toggle.
+M._enable_overridden = false
+
 --- Merge user options into the shared config, in place.
 ---@param opts? table
 function M.setup(opts)
@@ -38,14 +48,30 @@ end
 
 --- Entry point called by blink.cmp: `require('blink-im-zhh').new(opts, config)`.
 --- `opts` comes from `sources.providers.<id>.opts`; `config` is the full
---- provider table (kept for the source name). Both are merged into the shared
---- module config in place before constructing the source instance.
+--- provider table (kept for the source name).
+---
+--- `opts` seeds the shared module config ONLY ONCE (on the first call). This is
+--- important because blink.cmp instantiates the source lazily and may (on
+--- reload / per-filetype rebuild) call `new` again; re-applying
+--- `opts.enable = false` on every call would clobber a live `toggle()`. Once
+--- initialized, the running `M.config` (mutated by `toggle()`/`setup()`) is
+--- handed to the source instance by reference, so toggles are observed live.
 ---@param opts? table
 ---@param config? table
 ---@return table
 function M.new(opts, config)
   opts = opts or {}
-  vim.tbl_deep_extend('force', M.config, opts)
+  if not M._init then
+    -- Seed defaults from opts on first call only. If the user already toggled
+    -- the input method, do not let `opts.enable` reset it to the provider
+    -- default.
+    local init_opts = vim.tbl_extend('force', {}, opts)
+    if M._enable_overridden then
+      init_opts.enable = nil
+    end
+    vim.tbl_deep_extend('force', M.config, init_opts)
+    M._init = true
+  end
   if config and config.name then
     M.source_name = config.name
   end
@@ -57,9 +83,18 @@ end
 ---@return boolean
 function M.toggle()
   if M.config.noice then
-    pcall(require('noice').cmd, 'dismiss')
+    -- Safe: `require` is evaluated INSIDE the pcall, so a missing `noice`
+    -- module no longer crashes `toggle()` before the enable flag is flipped.
+    -- The `cmd` call is also wrapped so a half-initialized noice cannot abort
+    -- the toggle either.
+    local ok, noice = pcall(require, 'noice')
+    if ok and noice and noice.cmd then
+      pcall(noice.cmd, 'dismiss')
+    end
   end
   M.config.enable = not M.config.enable
+  M._enable_overridden = true
+  vim.notify('IM: ' .. (M.config.enable and 'on' or 'off'))
   if M.config.chinese_symbol then
     M.config.chinese_symbol = false
     for lhs, _ in pairs(table_utils.chinese_symbol()) do
@@ -76,7 +111,10 @@ end
 ---@return boolean?
 function M.toggle_chinese_symbol()
   if M.config.noice then
-    pcall(require('noice').cmd, 'dismiss')
+    local ok, noice = pcall(require, 'noice')
+    if ok and noice and noice.cmd then
+      pcall(noice.cmd, 'dismiss')
+    end
   end
   if not M.config.enable then
     vim.notify('请先启动输入法', vim.log.levels.ERROR)
