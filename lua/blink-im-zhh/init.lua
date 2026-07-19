@@ -1,44 +1,24 @@
 --- blink-im-zhh: a blink.cmp source for Chinese input via the 虎码 (HuCode)
 --- shape-based code table.
----
---- This is a rewrite of `yehuohan/cmp-im` (specifically the `cmp_im_zhh` fork)
---- for blink.cmp instead of nvim-cmp.
----
---- Module-level state (`M.config`) is shared by reference with the source
---- instance, so `toggle()`/`setup()`/`toggle_chinese_symbol()` mutate it in
---- place and the running source observes the changes immediately.
 
 local source_mod = require('blink-im-zhh.source')
 local table_utils = require('blink-im-zhh.table')
 
 local M = {}
 
---- Shared, module-level configuration. A single table reference is handed to
---- every source instance so that toggles are reflected live.
 M.config = {
   enable = false,
   noice = true,
   maxn = 8,
   tables = nil,
   format = nil,
-  chinese_symbol = false,
 }
 
---- Name of this provider as reported by blink (used to detect IM candidates).
 M.source_name = 'IM'
-
---- Guard so `M.new` only seeds the shared config from `opts` ONCE. blink.cmp
---- instantiates the source lazily (and may rebuild it on reload / filetype
---- change), so re-applying `opts.enable = false` on every call would clobber a
---- live `toggle()`.
 M._init = false
-
---- Set to true the first time the user calls `toggle()`, so that a provider's
---- `opts.enable` default can never reset a live toggle.
 M._enable_overridden = false
 
 --- Merge user options into the shared config, in place.
----@param opts? table
 function M.setup(opts)
   opts = opts or {}
   for k, v in pairs(opts) do
@@ -46,25 +26,10 @@ function M.setup(opts)
   end
 end
 
---- Entry point called by blink.cmp: `require('blink-im-zhh').new(opts, config)`.
---- `opts` comes from `sources.providers.<id>.opts`; `config` is the full
---- provider table (kept for the source name).
----
---- `opts` seeds the shared module config ONLY ONCE (on the first call). This is
---- important because blink.cmp instantiates the source lazily and may (on
---- reload / per-filetype rebuild) call `new` again; re-applying
---- `opts.enable = false` on every call would clobber a live `toggle()`. Once
---- initialized, the running `M.config` (mutated by `toggle()`/`setup()`) is
---- handed to the source instance by reference, so toggles are observed live.
----@param opts? table
----@param config? table
----@return table
+--- Entry point called by blink.cmp.
 function M.new(opts, config)
   opts = opts or {}
   if not M._init then
-    -- Seed defaults from opts on first call only. If the user already toggled
-    -- the input method, do not let `opts.enable` reset it to the provider
-    -- default.
     local init_opts = vim.tbl_extend('force', {}, opts)
     if M._enable_overridden then
       init_opts.enable = nil
@@ -78,15 +43,9 @@ function M.new(opts, config)
   return source_mod.new(M.config)
 end
 
---- Enable/Disable the input method. Turning it off also dismisses the
---- Chinese-symbol keymaps. Returns the new enable state.
----@return boolean
+--- Enable/Disable the input method.
 function M.toggle()
   if M.config.noice then
-    -- Safe: `require` is evaluated INSIDE the pcall, so a missing `noice`
-    -- module no longer crashes `toggle()` before the enable flag is flipped.
-    -- The `cmd` call is also wrapped so a half-initialized noice cannot abort
-    -- the toggle either.
     local ok, noice = pcall(require, 'noice')
     if ok and noice and noice.cmd then
       pcall(noice.cmd, 'dismiss')
@@ -95,67 +54,13 @@ function M.toggle()
   M.config.enable = not M.config.enable
   M._enable_overridden = true
   vim.notify('IM: ' .. (M.config.enable and 'on' or 'off'))
-  if M.config.chinese_symbol then
-    M.config.chinese_symbol = false
-    for lhs, _ in pairs(table_utils.chinese_symbol()) do
-      vim.keymap.del('i', lhs)
-    end
-    vim.notify('中文符号退出')
-  end
   return M.config.enable
 end
 
---- Toggle the Chinese punctuation feature. Requires the input method to be on.
---- When enabled, punctuation keys are remapped to their full-width variants
---- (quotes auto-pair). Returns the new Chinese-symbol state.
----@return boolean?
-function M.toggle_chinese_symbol()
-  if M.config.noice then
-    local ok, noice = pcall(require, 'noice')
-    if ok and noice and noice.cmd then
-      pcall(noice.cmd, 'dismiss')
-    end
-  end
-  if not M.config.enable then
-    vim.notify('请先启动输入法', vim.log.levels.ERROR)
-    return
-  end
-  M.config.chinese_symbol = not M.config.chinese_symbol
-  if M.config.chinese_symbol then
-    for lhs, rhs in pairs(table_utils.chinese_symbol()) do
-      vim.keymap.set('i', lhs, function()
-        if require('blink.cmp').is_visible() then
-          require('blink.cmp').accept()
-        end
-        vim.api.nvim_input(rhs)
-      end)
-    end
-    vim.notify('中文符号启动')
-  else
-    for lhs, _ in pairs(table_utils.chinese_symbol()) do
-      vim.keymap.del('i', lhs)
-    end
-    vim.notify('中文符号退出')
-  end
-  return M.config.chinese_symbol
-end
-
---- Current enable state of the input method.
----@return boolean
 function M.getStatus()
   return M.config.enable
 end
 
---- Current state of the Chinese punctuation feature.
----@return boolean
-function M.getChineseSymbolStatus()
-  return M.config.chinese_symbol
-end
-
---- Keymap handler factory for `<Space>`: commit the current IM candidate.
---- When the input method is enabled and the menu is visible with an IM item
---- selected, accept it; otherwise fall back (insert a normal space).
----@return fun(fallback: fun())
 function M.select()
   return function(fallback)
     if not (M.getStatus() and require('blink.cmp').is_visible()) then
@@ -172,11 +77,6 @@ function M.select()
   end
 end
 
---- Keymap handler factory for `<CR>`: keep the typed code, do not commit.
---- When the input method is enabled and the menu is visible, cancel the
---- completion (preserving the typed code, closing the menu, not inserting a
---- newline). Otherwise fall back to the default `<CR>` behavior.
----@return fun(fallback: fun())
 function M.confirmEnter()
   return function(fallback)
     if M.getStatus() and require('blink.cmp').is_visible() then
@@ -187,7 +87,57 @@ function M.confirmEnter()
   end
 end
 
---- Convenience user command to toggle the input method.
+--- Chinese punctuation autocmd — intercepts punctuation keystrokes BEFORE they
+--- are inserted. When IM is on and a punctuation key listed in
+--- table_utils.chinese_symbol() is pressed:
+---   1. If the blink menu is visible → accept the first candidate
+---   2. Replace the character with the full-width Chinese version
+---
+--- Quote keys are handled separately: after accepting, we prevent the original
+--- quote from being inserted and instead use feedkeys to insert the auto-paired
+--- Chinese quotes with the cursor centered between them.
+---
+--- Uses InsertCharPre instead of keymaps because blink.cmp's completion menu
+--- can interfere with insert-mode keymap dispatch timing.
+vim.api.nvim_create_autocmd('InsertCharPre', {
+  group = vim.api.nvim_create_augroup('BlinkImZhhPunctuation', { clear = true }),
+  callback = function()
+    if not M.config.enable then
+      return
+    end
+
+    local char = vim.v.char
+    local symbols = table_utils.chinese_symbol()
+    local rhs = symbols[char]
+    if not rhs then
+      return
+    end
+
+    --- Suppress the original ASCII character. We defer everything below one
+    --- event-loop tick so that blink.cmp's internal state is stable when we
+    --- call accept() — calling it synchronously inside InsertCharPre often
+    --- has no effect because blink has not finished processing yet.
+    vim.v.char = ''
+
+    vim.schedule(function()
+      local blink = require('blink.cmp')
+      if blink.is_visible() then
+        blink.accept()
+      end
+
+      -- Insert the full-width Chinese punctuation.
+      -- Quotes use feedkeys with <Left> resolved so the cursor lands
+      -- between the auto-paired quote characters.
+      if char == "'" or char == '"' then
+        local feed = vim.api.nvim_replace_termcodes(rhs, true, true, true)
+        vim.api.nvim_feedkeys(feed, 'n', false)
+      else
+        vim.api.nvim_feedkeys(rhs, 'n', false)
+      end
+    end)
+  end,
+})
+
 vim.api.nvim_create_user_command('BlinkImZhhToggle', function()
   M.toggle()
 end, {})
