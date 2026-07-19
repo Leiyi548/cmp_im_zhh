@@ -31,12 +31,23 @@ function source:enabled()
   return self.config.enable
 end
 
---- Non-alphanumeric characters that should trigger the source.
---- Lowercase letters are keyword characters and are auto-triggered by blink,
---- so we only need to declare `;` as an explicit trigger prefix.
+--- Characters that should trigger the source.
+---
+--- blink.cmp only requests this source when the *newly-typed* character
+--- belongs to this set (see `completion/init.lua` and
+--- `completion/trigger/init.lua`). Custom Lua sources do NOT auto-trigger on
+--- keyword/letter input, so 虎码 (HuCode) — a pure-lowercase-letter code —
+--- must declare every letter explicitly. Without this, typing `a` (or `aa`)
+--- would never call `get_completions`, yielding no Chinese candidates. We
+--- also keep `;` as the explicit prefix trigger.
 ---@return string[]
 function source:get_trigger_characters()
-  return { ';' }
+  local chars = {}
+  for c in ('abcdefghijklmnopqrstuvwxyz'):gmatch('.') do
+    chars[#chars + 1] = c
+  end
+  chars[#chars + 1] = ';'
+  return chars
 end
 
 --- Lazily load every configured IM table (or the bundled 虎码 table) once.
@@ -62,7 +73,7 @@ end
 ---@param start_char integer 0-indexed replace range start
 ---@param end_char integer 0-indexed replace range end (exclusive)
 ---@return table
-function source:make_item(char, key, row, start_char, end_char)
+function source:make_item(char, key, pre, row, start_char, end_char)
   local label = char
   if type(self.config.format) == 'function' then
     label = self.config.format(key, char) or char
@@ -71,8 +82,9 @@ function source:make_item(char, key, row, start_char, end_char)
   return {
     label = label,
     kind = types.CompletionItemKind.Text,
-    -- Let blink fuzzy match the typed code against the candidate.
-    filterText = key,
+    -- blink 模糊匹配用整行前缀（pre）作 keyword，filterText 必须以 pre 开头才匹配，
+    -- 否则"中文后接编码"场景候选会被过滤掉。对齐 yehuohan/blink-cmp-im。
+    filterText = pre .. key,
     -- Keep candidates grouped by code (stable ordering across tables).
     sortText = key,
     textEdit = {
@@ -97,25 +109,23 @@ function source:get_completions(ctx, callback)
 
   self:load_tbls()
 
-  local line = ctx.line
-  local col = ctx.pos.col -- 0-indexed: char just before cursor is line:sub(col, col)
+  -- 用 blink 提供的 ctx.cursor（字节位置，和 ctx.line 一致），避免 ctx.pos 单位不可靠
+  -- 和 nvim_win_get_cursor 的异步光标问题。对齐 yehuohan/blink-cmp-im 的实现。
+  local pre = ctx.line:sub(1, ctx.cursor[2])  -- 光标前前缀（字节索引）
+  local row = ctx.cursor[1] - 1                -- 0-indexed row
+  local col = ctx.cursor[2]                    -- 字节 col
 
-  -- Scan backwards collecting the run of lowercase letters before the cursor.
-  local i = col
-  while i > 0 and line:sub(i, i):match('%l') do
-    i = i - 1
-  end
-
-  -- If the run is immediately preceded by ';', include it in the replace range.
-  local has_semicolon = (i > 0 and line:sub(i, i) == ';')
-  local start_char = has_semicolon and (i - 1) or i -- 0-indexed range start
-  local key = line:sub(i + 1, col)
-
-  if key == '' then
+  -- 在前缀末尾找小写字母 run 作为 key（比从 col 往前扫描更简洁可靠，对中文也正确）
+  local key = pre:match('%l+$')
+  if not key then
     return callback({ items = {}, is_incomplete_forward = true, is_incomplete_backward = true })
   end
 
-  local row = ctx.pos.row
+  -- ; 前缀支持：字母 run 前若是 ;，把 ; 纳入替换范围
+  local before_key = pre:sub(1, #pre - #key)
+  local has_semicolon = before_key:sub(-1) == ';'
+  local start_char = has_semicolon and (col - #key - 1) or (col - #key)
+
   local items = {}
   local maxn = self.config.maxn or 1
 
@@ -136,7 +146,7 @@ function source:get_completions(ctx, callback)
           end
           for j = 2, #kvs do
             local char = kvs[j]
-            items[#items + 1] = self:make_item(char, key, row, start_char, col)
+            items[#items + 1] = self:make_item(char, key, pre, row, start_char, col)
             cnt = cnt + 1
             if cnt >= maxn then
               break
@@ -150,7 +160,7 @@ function source:get_completions(ctx, callback)
       for _, kv in ipairs(tbl.lst) do
         if kv[1]:match('^' .. key) then
           cnt = cnt + 1
-          items[#items + 1] = self:make_item(kv[2], key, row, start_char, col)
+          items[#items + 1] = self:make_item(kv[2], key, pre, row, start_char, col)
         end
         if cnt >= maxn then
           break
