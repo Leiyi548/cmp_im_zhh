@@ -8,7 +8,6 @@
 local source = {}
 
 local table_utils = require('blink-im-zhh.table')
-local dictionary = require('blink-im-zhh.dictionary')
 local types = require('blink.cmp.types')
 
 --- Construct a new source instance.
@@ -20,7 +19,6 @@ function source.new(opts)
   local self = setmetatable({}, { __index = source })
   self.config = opts
   self.tbls = nil -- lazy-loaded list of loaded IM tables
-  self.dict = nil -- lazy-loaded reverse dictionary (char -> pinyin/radical)
   return self
 end
 
@@ -74,9 +72,10 @@ end
 ---@param end_char integer 0-indexed replace range end (exclusive)
 ---@return table
 function source:make_item(char, key, pre, row, start_char, end_char)
-  local label = char
+  -- 默认显示 "汉字 编码" 格式（如 "来 a"），可通过 format 自定义
+  local label = char .. ' ' .. key
   if type(self.config.format) == 'function' then
-    label = self.config.format(key, char) or char
+    label = self.config.format(key, char) or (char .. ' ' .. key)
   end
 
   return {
@@ -141,7 +140,7 @@ function source:get_completions(ctx, callback)
         local li = 0
         repeat
           local kvs = tbl.lst[idx + li]
-          if (not kvs) or (not kvs[1]:match('^' .. key)) then
+          if (not kvs) or (kvs[1]:sub(1, #key) ~= key) then
             break
           end
           for j = 2, #kvs do
@@ -158,7 +157,7 @@ function source:get_completions(ctx, callback)
     else
       -- Unordered table: brute-force scan (still fine under luajit).
       for _, kv in ipairs(tbl.lst) do
-        if kv[1]:match('^' .. key) then
+        if kv[1]:sub(1, #key) == key then
           cnt = cnt + 1
           items[#items + 1] = self:make_item(kv[2], key, pre, row, start_char, col)
         end
@@ -176,24 +175,6 @@ function source:get_completions(ctx, callback)
     is_incomplete_forward = true,
     is_incomplete_backward = true,
   })
-end
-
---- Lazily resolve documentation (pinyin / radical) only when needed, so the
---- menu itself never pays the cost of loading the 2.3MB reverse dictionary.
----@param item table
----@param callback fun(item: table)
-function source:resolve(item, callback)
-  if not self.dict then
-    self.dict = dictionary.load_zhh_dictionary()
-  end
-  -- Index by the inserted character (always present in textEdit.newText),
-  -- which is robust even when `format` rewrites the label.
-  local char = item.textEdit and item.textEdit.newText or item.label
-  item.documentation = {
-    kind = 'markdown',
-    value = self.dict[char] or '',
-  }
-  return callback(item)
 end
 
 return source

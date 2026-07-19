@@ -40,7 +40,7 @@ local function search(lst, key)
     end
   end
   local idx = lo
-  if lst[idx][1]:match('^' .. key) then
+  if lst[idx][1]:sub(1, #key) == key then
     return idx
   end
   return nil
