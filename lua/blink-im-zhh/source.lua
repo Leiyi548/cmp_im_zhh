@@ -7,8 +7,8 @@
 
 local source = {}
 
-local table_utils = require('blink-im-zhh.table')
-local types = require('blink.cmp.types')
+local table_utils = require("blink-im-zhh.table")
+local types = require("blink.cmp.types")
 
 --- Construct a new source instance.
 --- `opts` is the shared module-level config table (kept by reference so that
@@ -41,10 +41,10 @@ end
 ---@return string[]
 function source:get_trigger_characters()
   local chars = {}
-  for c in ('abcdefghijklmnopqrstuvwxyz'):gmatch('.') do
+  for c in ("abcdefghijklmnopqrstuvwxyz"):gmatch(".") do
     chars[#chars + 1] = c
   end
-  chars[#chars + 1] = ';'
+  chars[#chars + 1] = ";"
   return chars
 end
 
@@ -58,7 +58,7 @@ function source:load_tbls()
       if tbl:valid() then
         self.tbls[#self.tbls + 1] = tbl
       else
-        vim.notify(string.format('Failed to load %s as blink-im-zhh table', fn), vim.log.levels.WARN)
+        vim.notify(string.format("Failed to load %s as blink-im-zhh table", fn), vim.log.levels.WARN)
       end
     end
   end
@@ -73,9 +73,9 @@ end
 ---@return table
 function source:make_item(char, key, pre, row, start_char, end_char)
   -- 默认显示 "汉字 编码" 格式（如 "来 a"），可通过 format 自定义
-  local label = char .. ' ' .. key
-  if type(self.config.format) == 'function' then
-    label = self.config.format(key, char) or (char .. ' ' .. key)
+  local label = char .. " " .. key
+  if type(self.config.format) == "function" then
+    label = self.config.format(key, char) or (char .. " " .. key)
   end
 
   return {
@@ -90,7 +90,7 @@ function source:make_item(char, key, pre, row, start_char, end_char)
       newText = char,
       range = {
         start = { line = row, character = start_char },
-        ['end'] = { line = row, character = end_char },
+        ["end"] = { line = row, character = end_char },
       },
     },
     insertTextFormat = vim.lsp.protocol.InsertTextFormat.PlainText,
@@ -110,19 +110,19 @@ function source:get_completions(ctx, callback)
 
   -- 用 blink 提供的 ctx.cursor（字节位置，和 ctx.line 一致），避免 ctx.pos 单位不可靠
   -- 和 nvim_win_get_cursor 的异步光标问题。对齐 yehuohan/blink-cmp-im 的实现。
-  local pre = ctx.line:sub(1, ctx.cursor[2])  -- 光标前前缀（字节索引）
-  local row = ctx.cursor[1] - 1                -- 0-indexed row
-  local col = ctx.cursor[2]                    -- 字节 col
+  local pre = ctx.line:sub(1, ctx.cursor[2]) -- 光标前前缀（字节索引）
+  local row = ctx.cursor[1] - 1 -- 0-indexed row
+  local col = ctx.cursor[2] -- 字节 col
 
   -- 在前缀末尾找小写字母 run 作为 key（比从 col 往前扫描更简洁可靠，对中文也正确）
-  local key = pre:match('%l+$')
+  local key = pre:match("%l+$")
   if not key then
     return callback({ items = {}, is_incomplete_forward = true, is_incomplete_backward = true })
   end
 
   -- ; 前缀支持：字母 run 前若是 ;，把 ; 纳入替换范围
   local before_key = pre:sub(1, #pre - #key)
-  local has_semicolon = before_key:sub(-1) == ';'
+  local has_semicolon = before_key:sub(-1) == ";"
   local start_char = has_semicolon and (col - #key - 1) or (col - #key)
 
   local items = {}

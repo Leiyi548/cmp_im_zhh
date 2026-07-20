@@ -64,7 +64,7 @@ end
 ---@return string[]
 local function split(line, sep)
   if not sep then
-    sep = '%S+'
+    sep = "%S+"
   end
   local list = {}
   for ele in string.gmatch(line, sep) do
@@ -77,10 +77,10 @@ end
 --- Returns an array with a single table path (the default 虎码 / HuCode table).
 ---@return string[]
 function M.load_zhh_table()
-  local dir = vim.fs.dirname(vim.api.nvim_get_runtime_file('lua/blink-im-zhh/init.lua', false)[1])
+  local dir = vim.fs.dirname(vim.api.nvim_get_runtime_file("lua/blink-im-zhh/init.lua", false)[1])
   dir = vim.fs.dirname(vim.fs.dirname(dir)) -- plugin root
   local tbls = {}
-  tbls[#tbls + 1] = string.format('%s/tables/%s.txt', dir, 'zhh')
+  tbls[#tbls + 1] = string.format("%s/tables/%s.txt", dir, "zhh")
   return tbls
 end
 
@@ -90,19 +90,19 @@ end
 ---@return table<string, string>
 function M.chinese_symbol()
   return {
-    ['!'] = '！',
-    ['('] = '（',
-    [')'] = '）',
-    ['['] = '【',
-    [']'] = '】',
-    [':'] = '：',
-    ["'"] = '‘’<Left>', -- As auto pair
-    ['"'] = '“”<Left>', -- As auto pair
-    [','] = '，',
-    ['.'] = '。',
-    ['<'] = '《',
-    ['>'] = '》',
-    ['?'] = '？',
+    ["!"] = "！",
+    ["("] = "（",
+    [")"] = "）",
+    ["["] = "【",
+    ["]"] = "】",
+    [":"] = "：",
+    ["'"] = "‘’<Left>", -- As auto pair
+    ['"'] = "“”<Left>", -- As auto pair
+    [","] = "，",
+    ["."] = "。",
+    ["<"] = "《",
+    [">"] = "》",
+    ["?"] = "？",
   }
 end
 
@@ -114,7 +114,7 @@ end
 ---@param filename string
 ---@return table
 function M.load_tbl(filename)
-  local fp = io.open(filename, 'r')
+  local fp = io.open(filename, "r")
   local lst = {} -- IM key-values list with key=lst[1] and values = lst[2:]
   local inv = {} -- Inverted lst: code -> first line index
   local last = nil
