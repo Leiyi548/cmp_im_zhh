@@ -87,6 +87,62 @@ function M.confirmEnter()
   end
 end
 
+--- Insert a full-width Chinese punctuation string directly into the buffer at
+--- the cursor. We use nvim_buf_set_text instead of nvim_feedkeys because feeding
+--- multi-byte UTF-8 through the input parser was the cause of the garbled
+--- output; writing the buffer directly is synchronous and avoids any race with
+--- blink.cmp's accept() text edit (both edits run back-to-back in the same
+--- scheduled tick, in a well-defined order).
+---
+--- `rhs` may contain literal "<Left>" markers (used by the auto-paired quotes to
+--- center the cursor between the two quote characters). Each marker is stripped
+--- from the inserted text and turned into a one-character cursor move to the
+--- left, measured in bytes so full-width characters are handled correctly.
+local function insert_punct(rhs)
+  local left_moves = 0
+  local text = rhs:gsub("<Left>", function()
+    left_moves = left_moves + 1
+    return ""
+  end)
+
+  local row, col = unpack(vim.api.nvim_win_get_cursor(0))
+  vim.api.nvim_buf_set_text(0, row - 1, col, row - 1, col, { text })
+
+  --- nvim_buf_set_text does NOT move the window cursor: it stays at the
+  --- insertion start (before the inserted text). Without an explicit forward
+  --- step, the cursor would be stuck before the punctuation and every
+  --- subsequent keystroke would prepend instead of append. So we first jump to
+  --- the byte offset right after the inserted text, then apply any <Left>
+  --- moves (auto-paired quotes) on top of that.
+  local new_col = col + #text
+
+  --- Each <Left> moves the cursor one character to the left. We compute the byte
+  --- length of the character immediately to the left of the cursor so multi-byte
+  --- UTF-8 (e.g. full-width quotes, 3 bytes each) is moved correctly. Neovim
+  --- columns are 0-based byte offsets, while string:byte() is 1-based.
+  for _ = 1, left_moves do
+    if new_col <= 0 then
+      break
+    end
+    local line = vim.api.nvim_buf_get_lines(0, row - 1, row, false)[1] or ""
+    local i = new_col
+    while i > 0 do
+      local b = line:byte(i)
+      if b == nil then
+        break
+      end
+      if b < 0x80 or b >= 0xC0 then
+        break
+      end
+      i = i - 1
+    end
+    local blen = new_col - i + 1
+    new_col = math.max(0, new_col - blen)
+  end
+
+  vim.api.nvim_win_set_cursor(0, { row, new_col })
+end
+
 --- Chinese punctuation autocmd — intercepts punctuation keystrokes BEFORE they
 --- are inserted. When IM is on and a punctuation key listed in
 --- table_utils.chinese_symbol() is pressed:
@@ -122,17 +178,16 @@ vim.api.nvim_create_autocmd("InsertCharPre", {
     vim.schedule(function()
       local blink = require("blink.cmp")
       if blink.is_visible() then
-        blink.accept()
-      end
-
-      -- Insert the full-width Chinese punctuation.
-      -- Quotes use feedkeys with <Left> resolved so the cursor lands
-      -- between the auto-paired quote characters.
-      if char == "'" or char == '"' then
-        local feed = vim.api.nvim_replace_termcodes(rhs, true, true, true)
-        vim.api.nvim_feedkeys(feed, "n", false)
+        --- accept() is asynchronous: the candidate text is written to the
+        --- buffer (and the cursor repositioned to its end) only after the
+        --- resolve chain completes. Passing insert_punct as the callback
+        --- guarantees the punctuation is inserted AFTER `一` is in the buffer
+        --- and the cursor sits right after it. Calling insert_punct right after
+        --- accept() (as before) would insert `。` at the stale pre-accept cursor,
+        --- then the async edit would shift it to `一|。`.
+        blink.accept({ callback = function() insert_punct(rhs) end })
       else
-        vim.api.nvim_feedkeys(rhs, "n", false)
+        insert_punct(rhs)
       end
     end)
   end,

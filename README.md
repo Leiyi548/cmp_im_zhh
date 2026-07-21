@@ -1,6 +1,6 @@
-# cmp-im-zhh
+# blink_cmp_im_zhh
 
-[cmp-im](https://github.com/yehuohan/cmp-im) 的 fork
+[cmp-im](https://github.com/yehuohan/cmp-im) 的j
 
 ## 演示图
 
@@ -13,21 +13,19 @@
 - Defaults configuration
 
 ```lua
-local cmp_im = require('cmp_im')
-cmp_im.setup{
-  -- Enable Noice
-  noice = true,
-  -- Enable/Disable IM
-  enable = false,
-  -- IM tables path array
-  tables = { },
-  -- Function to format IM-key and IM-tex for completion display
-  format = function(key, text) return vim.fn.printf('%-15S %s', text, key) end,
-  -- Max number entries to show for completion of each table
-  maxn = 8,
-}
-cmp.setup{
-    sources = { { name = 'IM' } },
+return {
+  "Leiyi548/blink_cmp_im_zhh", -- 仓库名，无所谓
+  dependencies = { "saghen/blink.cmp" },
+  opts = function(_, opts)
+    opts.sources = opts.sources or {}
+    opts.sources.default = vim.list_extend(opts.sources.default or {}, { "blink_im_zhh" })
+    opts.sources.providers = opts.sources.providers or {}
+    opts.sources.providers.blink_im_zhh = {
+      name = "虎码", -- 显示在菜单里的 source 名
+      module = "blink-im-zhh", -- ← 填模块名，不是 repo 名
+      opts = { enable = false, maxn = 8 }, -- enable=false 需手动开；想自启改 true
+    }
+  end,
 }
 ```
 
@@ -125,7 +123,6 @@ end
 ```
 
 ## lualine
-
 
 ```lua
 lualine_x = {
