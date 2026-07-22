@@ -114,8 +114,14 @@ function source:get_completions(ctx, callback)
   local row = ctx.cursor[1] - 1 -- 0-indexed row
   local col = ctx.cursor[2] -- 字节 col
 
+  -- 虎码：以"进入插入模式时记录的边界列"为起点，只把边界之后的小写字母串当作
+  -- 编码。这样 fff 之后重新进入插入模式再打 f，会补全"一"(码 f) 而不是 ffff，
+  -- 忽略进入 normal 模式前残留的字母。没有边界记录时退化为原行为。
+  local boundary = self.config._insert_start and self.config._insert_start[vim.api.nvim_get_current_buf()]
+  local search_pre = (boundary and boundary >= 0) and pre:sub(boundary + 1) or pre
+
   -- 在前缀末尾找小写字母 run 作为 key（比从 col 往前扫描更简洁可靠，对中文也正确）
-  local key = pre:match("%l+$")
+  local key = search_pre:match("%l+$")
   if not key then
     return callback({ items = {}, is_incomplete_forward = true, is_incomplete_backward = true })
   end

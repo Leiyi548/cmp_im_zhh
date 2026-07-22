@@ -53,6 +53,11 @@ function M.toggle()
   end
   M.config.enable = not M.config.enable
   M._enable_overridden = true
+  -- 启用虎码时，以当前光标列为编码起点，避免把之前残留的字母拼进新编码
+  if M.config.enable then
+    M.config._insert_start = M.config._insert_start or {}
+    M.config._insert_start[vim.api.nvim_get_current_buf()] = vim.api.nvim_win_get_cursor(0)[2]
+  end
   vim.notify("虎码: " .. (M.config.enable and "已启动" or "已关闭"))
   return M.config.enable
 end
@@ -196,5 +201,18 @@ vim.api.nvim_create_autocmd("InsertCharPre", {
 vim.api.nvim_create_user_command("BlinkImZhhToggle", function()
   M.toggle()
 end, {})
+
+--- 进入插入模式时记录光标列，作为虎码编码起点（配合 source.lua 的 boundary 处理）。
+--- 这样离开插入模式、残留小写字母后重新进入时，新编码不会把旧字母拼进去。
+vim.api.nvim_create_autocmd("InsertEnter", {
+  group = vim.api.nvim_create_augroup("BlinkImZhhBoundary", { clear = true }),
+  callback = function()
+    if not M.config.enable then
+      return
+    end
+    M.config._insert_start = M.config._insert_start or {}
+    M.config._insert_start[vim.api.nvim_get_current_buf()] = vim.api.nvim_win_get_cursor(0)[2]
+  end,
+})
 
 return M
